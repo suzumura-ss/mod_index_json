@@ -1,0 +1,9 @@
+mod_index_json 0.0.1
+
+This module adds directory index handler, it responced by text/json.
+
+To install:
+  # make && make install
+
+To enable this module:
+  For example, see index_json.conf for CentOS.
