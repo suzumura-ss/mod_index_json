@@ -7,3 +7,6 @@ To install:
 
 To enable this module:
   For example, see index_json.conf for CentOS.
+
+  $ curl localhost/             # Return ["index.html"] by this module.
+  $ curl localhost/index.html   # Return index.html by Apache-internal.
