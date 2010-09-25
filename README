@@ -1,12 +1,14 @@
-mod_index_json 0.0.1
+mod_index_json 0.0.2
 
 This module adds directory index handler, it responced by text/json.
 
 To install:
   # make && make install
+or
+  # (apxs|spxs2) -ci mod_index_json.c
 
 To enable this module:
   For example, see index_json.conf for CentOS.
 
-  $ curl localhost/             # Return ["index.html"] by this module.
-  $ curl localhost/index.html   # Return index.html by Apache-internal.
+  $ curl localhost/ -H "Accept: text/json"    # Return ["index.html"] by this module.
+  $ curl localhost/index.html                 # Return index.html by Apache-internal.
