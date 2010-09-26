@@ -28,6 +28,7 @@
 static int index_json_handler(request_rec *r)
 {
   const char* hdr;
+  apr_dir_t* dir;
 
   if(strcmp(r->handler, "index_json")) {
     return DECLINED;
@@ -36,14 +37,12 @@ static int index_json_handler(request_rec *r)
   if(!hdr || strcmp(hdr, "text/json")) {
     return DECLINED;
   }
+  if(apr_dir_open(&dir, r->filename, r->pool)!=APR_SUCCESS) return DECLINED;
 
   r->content_type = "text/json";
-
   if(!r->header_only) {
-    apr_dir_t* dir;
     apr_finfo_t finfo;
     int count = 0;
-    if(apr_dir_open(&dir, r->filename, r->pool)!=APR_SUCCESS) return DECLINED;
     ap_rputs("[", r);
     while(apr_dir_read(&finfo, 0/*APR_FINFO_XXX*/, dir)==APR_SUCCESS) {
       if(finfo.name[0]!='.') {
@@ -53,9 +52,9 @@ static int index_json_handler(request_rec *r)
       }
     }
     ap_rputs("]\n", r);
-    apr_dir_close(dir);
   }
 
+  apr_dir_close(dir);
   return OK;
 }
 
