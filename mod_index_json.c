@@ -27,31 +27,47 @@
 /* text/json handler */
 static int index_json_handler(request_rec *r)
 {
-  const char* hdr;
+  const char* type;
   apr_dir_t* dir;
 
   if(strcmp(r->handler, "index_json")) {
     return DECLINED;
   }
-  hdr = apr_table_get(r->headers_in, "Accept");
-  if(!hdr || strcmp(hdr, "text/json")) {
-    return DECLINED;
-  }
+  type = apr_table_get(r->headers_in, "Accept");
+  if(type) {
+    if((strcasecmp(type, "text/json")==0) || (strcasecmp(type, "text/json;array")==0)) {
+      type = "[]";
+    } else
+    if(strcasecmp(type, "text/json;hash")==0) {
+      type = "{}";
+    } else return DECLINED;
+  } else return DECLINED;
   if(apr_dir_open(&dir, r->filename, r->pool)!=APR_SUCCESS) return DECLINED;
 
   r->content_type = "text/json";
   if(!r->header_only) {
     apr_finfo_t finfo;
+    apr_fileperms_t perm = APR_FINFO_TYPE|APR_FINFO_UPROT|APR_FINFO_GPROT|APR_FINFO_WPROT;
     int count = 0;
-    ap_rputs("[", r);
-    while(apr_dir_read(&finfo, 0/*APR_FINFO_XXX*/, dir)==APR_SUCCESS) {
-      if(finfo.name[0]!='.') {
-        if(count>0) ap_rputs(",", r);
+    ap_rprintf(r, "%c", type[0]);
+    while(apr_dir_read(&finfo, perm, dir)==APR_SUCCESS) {
+      int mode = (finfo.filetype==APR_REG)? (0x100000): ((finfo.filetype==APR_DIR)? (0x040000): 0);
+      if(finfo.name[0]=='.') continue;
+      if(mode==0) continue;
+
+      if(count>0) ap_rputs(",", r);
+      if(type[0]=='[') {
+        // array
         ap_rprintf(r, "\"%s\"", finfo.name);
-        count++;
+      } else {
+        // hash
+        mode |= (finfo.protection & APR_FPROT_OS_DEFAULT);
+        fprintf(stderr, "%s: %d(%x), %lu\n", finfo.name, mode, mode, (long unsigned)finfo.size);
+        ap_rprintf(r, "\"%s\":{\"mode\":%x,\"size\":%lu}", finfo.name, mode, (long unsigned)finfo.size);
       }
+      count++;
     }
-    ap_rputs("]\n", r);
+    ap_rprintf(r, "%c\n", type[1]);
   }
 
   apr_dir_close(dir);
