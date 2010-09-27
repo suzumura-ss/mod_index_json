@@ -51,7 +51,10 @@ static int index_json_handler(request_rec *r)
     int count = 0;
     ap_rprintf(r, "%c", type[0]);
     while(apr_dir_read(&finfo, perm, dir)==APR_SUCCESS) {
-      int mode = (finfo.filetype==APR_REG)? (0x100000): ((finfo.filetype==APR_DIR)? (0x040000): 0);
+      int mode = (finfo.filetype==APR_REG)? (0x100000): ( \
+                 (finfo.filetype==APR_DIR)? (0x040000): ( \
+                 (finfo.filetype==APR_LNK)? (0x020000): ( \
+                  0)));
       if(finfo.name[0]=='.') continue;
       if(mode==0) continue;
 
@@ -61,9 +64,20 @@ static int index_json_handler(request_rec *r)
         ap_rprintf(r, "\"%s\"", finfo.name);
       } else {
         // hash
+        char ms[11] = "----------";
         mode |= (finfo.protection & APR_FPROT_OS_DEFAULT);
-        fprintf(stderr, "%s: %d(%x), %lu\n", finfo.name, mode, mode, (long unsigned)finfo.size);
-        ap_rprintf(r, "\"%s\":{\"mode\":%x,\"size\":%lu}", finfo.name, mode, (long unsigned)finfo.size);
+        if(mode & 0x040000) ms[0]='d';
+        if(mode & 0x020000) ms[0]='l';
+        if(mode & APR_FPROT_UREAD)    ms[1]='r';
+        if(mode & APR_FPROT_UWRITE)   ms[2]='w';
+        if(mode & APR_FPROT_UEXECUTE) ms[3]='x';
+        if(mode & APR_FPROT_GREAD)    ms[4]='r';
+        if(mode & APR_FPROT_GWRITE)   ms[5]='w';
+        if(mode & APR_FPROT_GEXECUTE) ms[6]='x';
+        if(mode & APR_FPROT_WREAD)    ms[7]='r';
+        if(mode & APR_FPROT_WWRITE)   ms[8]='w';
+        if(mode & APR_FPROT_WEXECUTE) ms[9]='x';
+        ap_rprintf(r, "\"%s\":{\"mode\":\"%s\",\"size\":%lu}", finfo.name, ms, (long unsigned)finfo.size);
       }
       count++;
     }
