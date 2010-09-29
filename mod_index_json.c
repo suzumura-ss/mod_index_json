@@ -24,9 +24,50 @@
 #include "apr_tables.h"
 
 
+static const char* fileinfo_to_str(apr_pool_t* pool, const char* name, const apr_finfo_t* finfo, char type)
+{
+  int mode = (finfo->filetype==APR_REG)? (0x100000): ( \
+             (finfo->filetype==APR_DIR)? (0x040000): ( \
+             (finfo->filetype==APR_LNK)? (0x020000): ( \
+              0)));
+
+  if(name[0]=='.') return NULL;
+  if(mode==0) return NULL;
+
+  if(type=='[') {
+    // name of array
+    return apr_psprintf(pool, "\"%s\"", name);;
+  } else {
+    // hash
+    char ms[11] = "----------", mt[25] = "";
+    apr_size_t mts = sizeof(mt);
+    apr_time_exp_t tm;
+
+    apr_time_exp_lt(&tm, finfo->mtime);
+    apr_strftime(mt, &mts, mts, "%Y-%m-%dT%H:%M:%S%z", &tm);
+    mode |= (finfo->protection & APR_FPROT_OS_DEFAULT);
+    if(mode & 0x040000) ms[0]='d';
+    if(mode & 0x020000) ms[0]='l';
+    if(mode & APR_FPROT_UREAD)    ms[1]='r';
+    if(mode & APR_FPROT_UWRITE)   ms[2]='w';
+    if(mode & APR_FPROT_UEXECUTE) ms[3]='x';
+    if(mode & APR_FPROT_GREAD)    ms[4]='r';
+    if(mode & APR_FPROT_GWRITE)   ms[5]='w';
+    if(mode & APR_FPROT_GEXECUTE) ms[6]='x';
+    if(mode & APR_FPROT_WREAD)    ms[7]='r';
+    if(mode & APR_FPROT_WWRITE)   ms[8]='w';
+    if(mode & APR_FPROT_WEXECUTE) ms[9]='x';
+    return apr_psprintf(pool, "\"%s\":{\"mode\":\"%s\",\"size\":%lu,\"mtime\":\"%s\"}", \
+                        name, ms, (long unsigned)finfo->size, mt);
+  }
+}
+
+ 
 /* text/json handler */
 static int index_json_handler(request_rec *r)
 {
+  static const apr_fileperms_t PERM = APR_FINFO_TYPE|APR_FINFO_UPROT|APR_FINFO_GPROT|APR_FINFO_WPROT|APR_FINFO_MTIME;
+  apr_finfo_t finfo;
   const char* type;
   apr_dir_t* dir;
 
@@ -42,43 +83,26 @@ static int index_json_handler(request_rec *r)
       type = "{}";
     } else return DECLINED;
   } else return DECLINED;
+
+  if(apr_stat(&finfo, r->filename, PERM, r->pool)==APR_SUCCESS) {
+    const char* stat = fileinfo_to_str(r->pool, r->parsed_uri.path+1, &r->finfo, '{');
+    if(stat) {
+      stat = apr_psprintf(r->pool, "{%s}", stat);      
+      apr_table_set(r->headers_out, "X-FileStat-Json", stat);
+    }
+  }
   if(apr_dir_open(&dir, r->filename, r->pool)!=APR_SUCCESS) return DECLINED;
 
   r->content_type = "text/json";
   if(!r->header_only) {
-    apr_finfo_t finfo;
-    apr_fileperms_t perm = APR_FINFO_TYPE|APR_FINFO_UPROT|APR_FINFO_GPROT|APR_FINFO_WPROT;
     int count = 0;
     ap_rprintf(r, "%c", type[0]);
-    while(apr_dir_read(&finfo, perm, dir)==APR_SUCCESS) {
-      int mode = (finfo.filetype==APR_REG)? (0x100000): ( \
-                 (finfo.filetype==APR_DIR)? (0x040000): ( \
-                 (finfo.filetype==APR_LNK)? (0x020000): ( \
-                  0)));
-      if(finfo.name[0]=='.') continue;
-      if(mode==0) continue;
+    while(apr_dir_read(&finfo, PERM, dir)==APR_SUCCESS) {
+      const char* stat = fileinfo_to_str(r->pool, finfo.name, &finfo, type[0]);
+      if(stat==NULL) continue;
 
       if(count>0) ap_rputs(",", r);
-      if(type[0]=='[') {
-        // array
-        ap_rprintf(r, "\"%s\"", finfo.name);
-      } else {
-        // hash
-        char ms[11] = "----------";
-        mode |= (finfo.protection & APR_FPROT_OS_DEFAULT);
-        if(mode & 0x040000) ms[0]='d';
-        if(mode & 0x020000) ms[0]='l';
-        if(mode & APR_FPROT_UREAD)    ms[1]='r';
-        if(mode & APR_FPROT_UWRITE)   ms[2]='w';
-        if(mode & APR_FPROT_UEXECUTE) ms[3]='x';
-        if(mode & APR_FPROT_GREAD)    ms[4]='r';
-        if(mode & APR_FPROT_GWRITE)   ms[5]='w';
-        if(mode & APR_FPROT_GEXECUTE) ms[6]='x';
-        if(mode & APR_FPROT_WREAD)    ms[7]='r';
-        if(mode & APR_FPROT_WWRITE)   ms[8]='w';
-        if(mode & APR_FPROT_WEXECUTE) ms[9]='x';
-        ap_rprintf(r, "\"%s\":{\"mode\":\"%s\",\"size\":%lu}", finfo.name, ms, (long unsigned)finfo.size);
-      }
+      ap_rprintf(r, "%s", stat);
       count++;
     }
     ap_rprintf(r, "%c\n", type[1]);
