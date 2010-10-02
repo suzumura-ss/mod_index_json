@@ -1,4 +1,4 @@
-mod_index_json 0.0.2
+mod_index_json 0.0.3
 
 This module adds directory index handler, it responced by text/json.
 
@@ -16,7 +16,11 @@ To enable this module:
 
   - Return hash of entries by this module.
   $ curl localhost/ -H "Accept: text/json;hash"
-  {"index.html":{"mode":"-rw-r--r--","size":68}}
+  {"index.html":{"mode":"-rw-r--r--","size":68,"mtime":"2010:10:03T12:00:00+0900"}}
+
+  - Return extend response header:
+  $ curl localhost/index.html -I
+  X-FileStat-Json: {"index.html":{"mode":"-rw-r--r--","size":68,"mtime":"2010:10:03T12:00:00+0900"}}
 
   # Return index.html by Apache-internal.  
   $ curl localhost/index.html
