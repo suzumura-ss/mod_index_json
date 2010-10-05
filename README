@@ -1,4 +1,4 @@
-mod_index_json 0.0.3
+mod_index_json 0.0.4
 
 This module adds directory index handler, it responced by text/json.
 

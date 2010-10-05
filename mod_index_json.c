@@ -57,8 +57,8 @@ static const char* fileinfo_to_str(apr_pool_t* pool, const char* name, const apr
     if(mode & APR_FPROT_WREAD)    ms[7]='r';
     if(mode & APR_FPROT_WWRITE)   ms[8]='w';
     if(mode & APR_FPROT_WEXECUTE) ms[9]='x';
-    return apr_psprintf(pool, "\"%s\":{\"mode\":\"%s\",\"size\":%lu,\"mtime\":\"%s\"}", \
-                        name, ms, (long unsigned)finfo->size, mt);
+    return apr_psprintf(pool, "\"%s\":{\"mode\":\"%s\",\"size\":%llu,\"mtime\":\"%s\"}", \
+                        name, ms, (unsigned long long)finfo->size, mt);
   }
 }
 
