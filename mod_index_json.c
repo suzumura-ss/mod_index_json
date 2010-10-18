@@ -39,7 +39,7 @@ static const char* fileinfo_to_str(apr_pool_t* pool, const char* name, const apr
     return apr_psprintf(pool, "\"%s\"", name);;
   } else {
     // hash
-    char ms[11] = "----------", mt[25] = "";
+    char ms[11] = "----------", mt[25] = "", size[21];
     apr_size_t mts = sizeof(mt);
     apr_time_exp_t tm;
 
@@ -57,8 +57,9 @@ static const char* fileinfo_to_str(apr_pool_t* pool, const char* name, const apr
     if(mode & APR_FPROT_WREAD)    ms[7]='r';
     if(mode & APR_FPROT_WWRITE)   ms[8]='w';
     if(mode & APR_FPROT_WEXECUTE) ms[9]='x';
-    return apr_psprintf(pool, "\"%s\":{\"mode\":\"%s\",\"size\":%llu,\"mtime\":\"%s\"}", \
-                        name, ms, (unsigned long long)finfo->size, mt);
+    snprintf(size, sizeof(size), "%llu", (unsigned long long)finfo->size);
+    return apr_psprintf(pool, "\"%s\":{\"mode\":\"%s\",\"mtime\":\"%s\",\"size\":%s}", \
+                        name, ms, mt, size);
   }
 }
 
