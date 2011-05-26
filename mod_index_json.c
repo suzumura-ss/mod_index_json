@@ -1,5 +1,5 @@
 /* 
- * Copyright 2010 Toshiyuki Terashita
+ * Copyright 2011 Toshiyuki Terashita
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,6 +71,7 @@ static int index_json_handler(request_rec *r)
   apr_finfo_t finfo;
   const char* type;
   apr_dir_t* dir;
+  int result;
 
   if(strcmp(r->handler, "index_json")) {
     return DECLINED;
@@ -91,11 +92,16 @@ static int index_json_handler(request_rec *r)
       stat = apr_psprintf(r->pool, "{%s}", stat);      
       apr_table_set(r->headers_out, "X-FileStat-Json", stat);
     }
+    r->mtime = finfo.mtime;
   }
   if(apr_dir_open(&dir, r->filename, r->pool)!=APR_SUCCESS) return DECLINED;
 
   r->content_type = "text/json";
-  if(!r->header_only) {
+  ap_set_etag(r);
+  ap_set_last_modified(r);
+
+  result=ap_meets_conditions(r);
+  if((result==OK) && (!r->header_only)) {
     int count = 0;
     ap_rprintf(r, "%c", type[0]);
     while(apr_dir_read(&finfo, PERM, dir)==APR_SUCCESS) {
@@ -110,7 +116,7 @@ static int index_json_handler(request_rec *r)
   }
 
   apr_dir_close(dir);
-  return OK;
+  return result;
 }
 
 static void index_json_register_hooks(apr_pool_t *p)
